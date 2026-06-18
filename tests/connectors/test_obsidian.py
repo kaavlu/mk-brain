@@ -37,3 +37,19 @@ def test_iter_documents_falls_back_to_filename_stem_for_title(fixture_vault_path
     )
     assert doc.frontmatter == {}
     assert doc.links == []
+
+
+def test_iter_documents_merges_frontmatter_and_inline_tags(fixture_vault_path):
+    docs = list(ObsidianConnector(fixture_vault_path).iter_documents())
+
+    doc = _by_path(docs, "code_fence_tag.md")
+
+    assert doc.tags == ["another-real", "docs", "real-tag"]
+
+
+def test_iter_documents_merges_inline_tag_for_note_with_frontmatter_tags(fixture_vault_path):
+    docs = list(ObsidianConnector(fixture_vault_path).iter_documents())
+
+    doc = _by_path(docs, "note1.md")
+
+    assert doc.tags == ["project", "work"]

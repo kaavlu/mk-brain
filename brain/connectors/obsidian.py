@@ -9,6 +9,8 @@ import frontmatter
 from brain.models import Document
 
 _WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)")
+_FENCE_RE = re.compile(r"^\s*(```|~~~)")
+_INLINE_TAG_RE = re.compile(r"(?<!\S)#([A-Za-z0-9_/-]+)")
 
 
 class ObsidianConnector:
@@ -27,7 +29,7 @@ class ObsidianConnector:
         fm_tags = post.metadata.get("tags") or []
         if isinstance(fm_tags, str):
             fm_tags = [fm_tags]
-        tags = sorted(set(fm_tags))
+        tags = sorted(set(fm_tags) | _extract_inline_tags(body))
         links = _extract_wikilinks(body)
         title = post.metadata.get("title") or path.stem
         stat = path.stat()
@@ -50,3 +52,16 @@ class ObsidianConnector:
 
 def _extract_wikilinks(body: str) -> list[str]:
     return _WIKILINK_RE.findall(body)
+
+
+def _extract_inline_tags(body: str) -> set[str]:
+    tags: set[str] = set()
+    in_fence = False
+    for line in body.split("\n"):
+        if _FENCE_RE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        tags.update(_INLINE_TAG_RE.findall(line))
+    return tags
