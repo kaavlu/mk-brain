@@ -69,3 +69,15 @@ def test_ingest_source_does_not_delete_rows_from_other_sources(conn):
     ingest_source(conn, "fake", connector)
 
     assert queries.get_by_id(conn, "other-source-doc") is not None
+
+
+def test_ingest_source_keeps_previously_ingested_document_that_fails_to_reupsert(conn):
+    queries.upsert_document(conn, _doc("a"))
+
+    connector = _FakeConnector([_doc("a", content=None)])
+    result = ingest_source(conn, "fake", connector)
+
+    assert result.skipped == 1
+    assert result.upserted == 0
+    assert result.deleted == 0
+    assert queries.get_by_id(conn, "a") is not None

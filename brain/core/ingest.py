@@ -22,11 +22,11 @@ def ingest_source(conn: sqlite3.Connection, source: str, connector: Connector) -
     for doc in connector.iter_documents():
         try:
             queries.upsert_document(conn, doc)
+            upserted += 1
         except Exception as e:
             logger.info("skipped %s: %s", doc.path, e)
             skipped += 1
-            continue
-        seen_ids.add(doc.id)
-        upserted += 1
+        finally:
+            seen_ids.add(doc.id)
     deleted = queries.delete_missing(conn, source, seen_ids)
     return IngestResult(upserted=upserted, skipped=skipped, deleted=deleted)
