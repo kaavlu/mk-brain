@@ -45,3 +45,55 @@ def test_upsert_document_replaces_existing_row(conn):
         "SELECT COUNT(*) FROM documents WHERE id = 'doc-1'"
     ).fetchone()[0]
     assert count == 1
+
+
+def test_search_finds_matching_document_by_content(conn):
+    queries.upsert_document(
+        conn, _make_document(id="doc-1", title="Alpha", content="The quick brown fox")
+    )
+    queries.upsert_document(
+        conn, _make_document(id="doc-2", title="Beta", content="Nothing relevant here")
+    )
+
+    results = queries.search(conn, '"fox"')
+
+    assert [r.id for r in results] == ["doc-1"]
+    assert results[0].title == "Alpha"
+    assert "fox" in results[0].snippet.lower()
+
+
+def test_search_filters_by_source(conn):
+    queries.upsert_document(
+        conn, _make_document(id="doc-1", source="obsidian", content="shared keyword")
+    )
+    queries.upsert_document(
+        conn, _make_document(id="doc-2", source="gdocs", content="shared keyword")
+    )
+
+    results = queries.search(conn, '"keyword"', source="gdocs")
+
+    assert [r.id for r in results] == ["doc-2"]
+
+
+def test_search_filters_by_tags(conn):
+    queries.upsert_document(
+        conn, _make_document(id="doc-1", tags=["work"], content="shared keyword")
+    )
+    queries.upsert_document(
+        conn, _make_document(id="doc-2", tags=["home"], content="shared keyword")
+    )
+
+    results = queries.search(conn, '"keyword"', tags=["home"])
+
+    assert [r.id for r in results] == ["doc-2"]
+
+
+def test_search_respects_limit(conn):
+    for i in range(3):
+        queries.upsert_document(
+            conn, _make_document(id=f"doc-{i}", content="shared keyword")
+        )
+
+    results = queries.search(conn, '"keyword"', limit=2)
+
+    assert len(results) == 2
