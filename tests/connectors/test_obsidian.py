@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from brain.connectors.obsidian import ObsidianConnector
@@ -53,3 +54,19 @@ def test_iter_documents_merges_inline_tag_for_note_with_frontmatter_tags(fixture
     doc = _by_path(docs, "note1.md")
 
     assert doc.tags == ["project", "work"]
+
+
+def test_iter_documents_skips_malformed_yaml_and_logs(fixture_vault_path, caplog):
+    caplog.set_level(logging.INFO, logger="brain.connectors.obsidian")
+
+    docs = list(ObsidianConnector(fixture_vault_path).iter_documents())
+
+    assert all(d.path != "malformed.md" for d in docs)
+    assert any("malformed.md" in record.message for record in caplog.records)
+
+
+def test_iter_documents_ignores_dot_obsidian_directory(fixture_vault_path):
+    docs = list(ObsidianConnector(fixture_vault_path).iter_documents())
+
+    assert all(not d.path.startswith(".obsidian/") for d in docs)
+    assert len(docs) == 3

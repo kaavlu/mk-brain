@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +12,9 @@ from brain.models import Document
 _WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)")
 _FENCE_RE = re.compile(r"^\s*(```|~~~)")
 _INLINE_TAG_RE = re.compile(r"(?<!\S)#([A-Za-z0-9_/-]+)")
+_IGNORE_DIRS = {".obsidian"}
+
+logger = logging.getLogger(__name__)
 
 
 class ObsidianConnector:
@@ -20,7 +24,13 @@ class ObsidianConnector:
     def iter_documents(self) -> Iterator[Document]:
         for path in sorted(self.vault_path.rglob("*.md")):
             relative = path.relative_to(self.vault_path)
-            yield self._parse_file(path, relative)
+            if any(part in _IGNORE_DIRS for part in relative.parts):
+                continue
+            try:
+                yield self._parse_file(path, relative)
+            except Exception as e:
+                logger.info("skipped %s: %s", relative, e)
+                continue
 
     def _parse_file(self, path: Path, relative: Path) -> Document:
         raw = path.read_text(encoding="utf-8")
