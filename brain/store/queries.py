@@ -30,9 +30,9 @@ def upsert_document(conn: sqlite3.Connection, doc: Document) -> None:
             "path": doc.path,
             "title": doc.title,
             "content": doc.content,
-            "tags": json.dumps(doc.tags),
-            "frontmatter": json.dumps(doc.frontmatter),
-            "links": json.dumps(doc.links),
+            "tags": json.dumps(doc.tags, default=str),
+            "frontmatter": json.dumps(doc.frontmatter, default=str),
+            "links": json.dumps(doc.links, default=str),
             "updated_at": doc.updated_at.isoformat(),
             "ingested_at": doc.ingested_at.isoformat(),
         },
@@ -99,7 +99,7 @@ def search(
             key = f"tag_{i}"
             tag_clauses.append(f"documents.tags LIKE :{key}")
             params[key] = f'%"{tag}"%'
-        sql += " AND (" + " OR ".join(tag_clauses) + ")"
+        sql += " AND (" + " AND ".join(tag_clauses) + ")"
     # bm25() returns lower (more negative) scores for better matches.
     sql += " ORDER BY score LIMIT :limit"
     params["limit"] = limit
@@ -123,7 +123,8 @@ def delete_missing(conn: sqlite3.Connection, source: str, keep_ids: set[str]) ->
     ).fetchall()
     to_delete = [row["id"] for row in rows if row["id"] not in keep_ids]
     conn.executemany(
-        "DELETE FROM documents WHERE id = ?", [(id,) for id in to_delete]
+        "DELETE FROM documents WHERE id = ? AND source = ?",
+        [(id, source) for id in to_delete],
     )
     conn.commit()
     return len(to_delete)

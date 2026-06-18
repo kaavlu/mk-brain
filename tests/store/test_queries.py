@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from brain.models import Document
 from brain.store import queries
@@ -88,6 +88,23 @@ def test_search_filters_by_tags(conn):
     assert [r.id for r in results] == ["doc-2"]
 
 
+def test_search_filters_by_multiple_tags_requires_all(conn):
+    queries.upsert_document(
+        conn, _make_document(id="doc-1", tags=["work"], content="shared keyword")
+    )
+    queries.upsert_document(
+        conn,
+        _make_document(id="doc-2", tags=["work", "urgent"], content="shared keyword"),
+    )
+    queries.upsert_document(
+        conn, _make_document(id="doc-3", tags=["urgent"], content="shared keyword")
+    )
+
+    results = queries.search(conn, '"keyword"', tags=["work", "urgent"])
+
+    assert [r.id for r in results] == ["doc-2"]
+
+
 def test_search_respects_limit(conn):
     for i in range(3):
         queries.upsert_document(
@@ -110,6 +127,15 @@ def test_delete_missing_removes_rows_not_in_keep_ids(conn):
     assert queries.get_by_id(conn, "doc-2") is None
     assert queries.get_by_id(conn, "doc-1") is not None
     assert queries.get_by_id(conn, "doc-3") is not None
+
+
+def test_upsert_document_with_date_frontmatter_round_trips_as_string(conn):
+    doc = _make_document(frontmatter={"date": date(2024, 1, 15)})
+
+    queries.upsert_document(conn, doc)
+
+    fetched = queries.get_by_id(conn, "doc-1")
+    assert fetched.frontmatter == {"date": "2024-01-15"}
 
 
 def test_list_recent_orders_by_updated_at_descending(conn):
