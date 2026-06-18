@@ -97,3 +97,29 @@ def test_search_respects_limit(conn):
     results = queries.search(conn, '"keyword"', limit=2)
 
     assert len(results) == 2
+
+
+def test_delete_missing_removes_rows_not_in_keep_ids(conn):
+    queries.upsert_document(conn, _make_document(id="doc-1", source="obsidian"))
+    queries.upsert_document(conn, _make_document(id="doc-2", source="obsidian"))
+    queries.upsert_document(conn, _make_document(id="doc-3", source="gdocs"))
+
+    deleted = queries.delete_missing(conn, "obsidian", keep_ids={"doc-1"})
+
+    assert deleted == 1
+    assert queries.get_by_id(conn, "doc-2") is None
+    assert queries.get_by_id(conn, "doc-1") is not None
+    assert queries.get_by_id(conn, "doc-3") is not None
+
+
+def test_list_recent_orders_by_updated_at_descending(conn):
+    queries.upsert_document(
+        conn, _make_document(id="doc-1", updated_at=datetime(2024, 1, 1, tzinfo=timezone.utc))
+    )
+    queries.upsert_document(
+        conn, _make_document(id="doc-2", updated_at=datetime(2024, 6, 1, tzinfo=timezone.utc))
+    )
+
+    results = queries.list_recent(conn, limit=10)
+
+    assert [doc.id for doc in results] == ["doc-2", "doc-1"]

@@ -115,3 +115,22 @@ def search(
         )
         for row in rows
     ]
+
+
+def delete_missing(conn: sqlite3.Connection, source: str, keep_ids: set[str]) -> int:
+    rows = conn.execute(
+        "SELECT id FROM documents WHERE source = ?", (source,)
+    ).fetchall()
+    to_delete = [row["id"] for row in rows if row["id"] not in keep_ids]
+    conn.executemany(
+        "DELETE FROM documents WHERE id = ?", [(id,) for id in to_delete]
+    )
+    conn.commit()
+    return len(to_delete)
+
+
+def list_recent(conn: sqlite3.Connection, limit: int = 10) -> list[Document]:
+    rows = conn.execute(
+        "SELECT * FROM documents ORDER BY updated_at DESC LIMIT ?", (limit,)
+    ).fetchall()
+    return [_row_to_document(row) for row in rows]
